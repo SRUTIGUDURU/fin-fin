@@ -504,7 +504,7 @@ def show_goals():
                                 name='Saved Amount'
                             ))
                             fig.add_hline(y=target, line_dash="dash", line_color="green", annotation_text="Target")
-                            fig.update_layout(title=f"{goal['name']} Progress", xaxis_title="Date", yaxis_title="Amount ($)")
+                            fig.update_layout(title=f"{goal['name']} Progress", xaxis_title="Date", yaxis_title="Amount ")
                             st.plotly_chart(fig, use_container_width=True)
                     
                     st.divider()
@@ -517,8 +517,8 @@ def show_goals():
             
             with col1:
                 goal_name = st.text_input("Goal Name*", placeholder="e.g., Emergency Fund, New Car, Vacation")
-                goal_amount = st.number_input("Target Amount ($)*", min_value=0, value=5000, step=100)
-                current_saved = st.number_input("Already Saved ($)", min_value=0, value=0, step=100)
+                goal_amount = st.number_input("Target Amount *", min_value=0, value=5000, step=100)
+                current_saved = st.number_input("Already Saved ", min_value=0, value=0, step=100)
             
             with col2:
                 goal_category = st.selectbox("Category", ["Emergency Fund", "Major Purchase", "Travel", "Education", "Investment", "Other"])
@@ -584,7 +584,7 @@ def show_expenses():
             
             with col1:
                 expense_name = st.text_input("Expense Name*", placeholder="e.g., Groceries, Gas, Coffee")
-                expense_amount = st.number_input("Amount ($)*", min_value=0.0, step=0.01)
+                expense_amount = st.number_input("Amount *", min_value=0.0, step=0.01)
             
             with col2:
                 expense_category = st.selectbox("Category", 
@@ -689,13 +689,13 @@ def show_expenses():
             col1, col2 = st.columns(2)
             
             with col1:
-                total_budget = st.number_input("Total Monthly Budget ($)", 
+                total_budget = st.number_input("Total Monthly Budget ", 
                     min_value=0, 
                     value=budget["total_budget"] if budget else 5000, 
                     step=100)
             
             with col2:
-                income = st.number_input("Expected Monthly Income ($)", 
+                income = st.number_input("Expected Monthly Income ", 
                     min_value=0, 
                     value=budget["income"] if budget else 6000, 
                     step=100)
@@ -755,7 +755,7 @@ def show_expenses():
                 name='Monthly Expenses',
                 line=dict(color='red', width=3)
             ))
-            fig1.update_layout(title='Monthly Expense Trend', xaxis_title='Month', yaxis_title='Total Expenses ($)')
+            fig1.update_layout(title='Monthly Expense Trend', xaxis_title='Month', yaxis_title='Total Expenses ')
             st.plotly_chart(fig1, use_container_width=True)
             
             # Top spending categories
@@ -767,7 +767,7 @@ def show_expenses():
                 orientation='h',
                 marker_color='lightblue'
             ))
-            fig2.update_layout(title='Total Spending by Category', xaxis_title='Amount ($)', yaxis_title='Category')
+            fig2.update_layout(title='Total Spending by Category', xaxis_title='Amount ', yaxis_title='Category')
             st.plotly_chart(fig2, use_container_width=True)
             
             # Spending patterns
@@ -1006,11 +1006,11 @@ def show_create_scenario():
         with col1:
             name = st.text_input("Scenario Name*", placeholder="e.g., Software Engineer Path")
             starting_age = st.number_input("Current Age*", min_value=18, max_value=65, value=22)
-            starting_salary = st.number_input("Starting Salary ($)*", min_value=0, value=60000, step=1000)
+            starting_salary = st.number_input("Starting Salary *", min_value=0, value=60000, step=1000)
         
         with col2:
             salary_growth_rate = st.slider("Annual Salary Growth (%)*", 0.0, 20.0, 3.0, 0.1) / 100
-            monthly_expenses = st.number_input("Monthly Living Expenses ($)*", min_value=0, value=3000, step=100)
+            monthly_expenses = st.number_input("Monthly Living Expenses *", min_value=0, value=3000, step=100)
             savings_rate = st.slider("Savings Rate (%)*", 0.0, 100.0, 15.0, 1.0) / 100
         
         st.subheader("📈 Investment & Finance")
@@ -1018,7 +1018,7 @@ def show_create_scenario():
         with col1:
             investment_return_rate = st.slider("Expected Investment Return (%)*", 0.0, 20.0, 7.0, 0.1) / 100
         with col2:
-            student_debt = st.number_input("Student Debt ($)", min_value=0, value=0, step=1000)
+            student_debt = st.number_input("Student Debt ", min_value=0, value=0, step=1000)
         
         st.subheader("💸 Major Expenses (Optional)")
         num_expenses = st.number_input("Number of major expenses", 0, 5, 0)
@@ -1029,7 +1029,7 @@ def show_create_scenario():
             with col1:
                 expense_name = st.text_input(f"Expense {i+1} Name", key=f"exp_name_{i}")
             with col2:
-                expense_amount = st.number_input(f"Amount ($)", key=f"exp_amt_{i}", min_value=0, step=1000)
+                expense_amount = st.number_input(f"Amount ", key=f"exp_amt_{i}", min_value=0, step=1000)
             with col3:
                 expense_year = st.number_input(f"Year", key=f"exp_yr_{i}", min_value=1, max_value=50, value=5)
             
@@ -1049,7 +1049,7 @@ def show_create_scenario():
             with col1:
                 change_year = st.number_input(f"Year", key=f"ch_yr_{i}", min_value=1, max_value=50, value=5)
             with col2:
-                new_salary = st.number_input(f"New Salary ($)", key=f"ch_sal_{i}", min_value=0, step=1000)
+                new_salary = st.number_input(f"New Salary ", key=f"ch_sal_{i}", min_value=0, step=1000)
             with col3:
                 new_growth_rate = st.slider(f"New Growth Rate (%)", 0.0, 20.0, 3.0, 0.1, key=f"ch_gr_{i}") / 100
             
@@ -1143,7 +1143,7 @@ def show_analyze_scenario():
         fig1.add_trace(go.Scatter(x=df['year'], y=df['net_worth'], 
                                   mode='lines', name='Net Worth',
                                   line=dict(color='blue', width=3)))
-        fig1.update_layout(title='Net Worth Growth', xaxis_title='Year', yaxis_title='Net Worth ($)')
+        fig1.update_layout(title='Net Worth Growth', xaxis_title='Year', yaxis_title='Net Worth ')
         st.plotly_chart(fig1, use_container_width=True)
         
         # Income vs Expenses
@@ -1154,7 +1154,7 @@ def show_analyze_scenario():
         fig2.add_trace(go.Scatter(x=df['year'], y=df['living_expenses'], 
                                   mode='lines', name='Living Expenses',
                                   line=dict(color='red')))
-        fig2.update_layout(title='Income vs Expenses', xaxis_title='Year', yaxis_title='Amount ($)')
+        fig2.update_layout(title='Income vs Expenses', xaxis_title='Year', yaxis_title='Amount ')
         st.plotly_chart(fig2, use_container_width=True)
 
 def show_compare_scenarios():
@@ -1213,7 +1213,7 @@ def show_compare_scenarios():
                                 mode='lines', name=scenario2_name))
         fig.update_layout(title='Net Worth Comparison', 
                          xaxis_title='Year', 
-                         yaxis_title='Net Worth ($)')
+                         yaxis_title='Net Worth ')
         st.plotly_chart(fig, use_container_width=True)
 
 def show_manage_scenarios():
