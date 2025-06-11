@@ -10,52 +10,61 @@ import numpy as np
 from datetime import date, timedelta
 import calendar
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="Personal Economic Model - Life Decision Simulator",
-    page_icon="💰",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# Hardcoded password check function
+def check_access():
+    """Simple hardcoded password protection"""
+    
+    def verify_password():
+        # YOUR HARDCODED PASSWORD - CHANGE THIS!
+        CORRECT_PASSWORD = "FinanceApp2024!"
+        
+        entered_password = st.session_state.get("app_password", "")
+        
+        if entered_password == CORRECT_PASSWORD:
+            st.session_state["access_granted"] = True
+            st.session_state["show_password_input"] = False
+        else:
+            st.session_state["access_granted"] = False
+            if entered_password:  # Only show error if something was entered
+                st.error("❌ Incorrect password!")
 
-# Custom CSS for better styling
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-    }
-    .goal-progress {
-        background-color: #e8f4f8;
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border-left: 4px solid #1f77b4;
-    }
-    .expense-category {
-        background-color: #fff3cd;
-        padding: 0.5rem;
-        border-radius: 5px;
-        margin: 0.25rem 0;
-    }
-    .insight-box {
-        background-color: #d1ecf1;
-        border-left: 4px solid #0c5460;
-        padding: 1rem;
-        border-radius: 5px;
-        margin: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
+    # Check if access is already granted
+    if st.session_state.get("access_granted", False):
+        return True
+    
+    # Show password input
+    st.markdown("""
+    <div style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+        flex-direction: column;
+    ">
+        <h1 style="color: #1f77b4; margin-bottom: 2rem;">🔐 Personal Finance App</h1>
+        <p style="color: #666; font-size: 1.2rem; margin-bottom: 2rem;">Enter your access code to continue</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Center the password input
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        password_input = st.text_input(
+            "🔑 Password:",
+            type="password",
+            key="app_password",
+            placeholder="Enter your password here..."
+        )
+        
+        col_a, col_b, col_c = st.columns([1, 1, 1])
+        with col_b:
+            if st.button("🚀 Access App", type="primary", use_container_width=True):
+                verify_password()
+    
+    return False
 
+# Data file constants
 DATA_FILE = "financial_scenarios.json"
 GOALS_FILE = "financial_goals.json"
 EXPENSES_FILE = "monthly_expenses.json"
@@ -186,7 +195,7 @@ class FinancialSimulator:
                 insights.append({
                     "type": "expense",
                     "priority": "high",
-                    "message": f"Your average expense is ₹ {avg_expense:.2f}. Consider reviewing your spending habits.",
+                    "message": f"Your average expense is ₹{avg_expense:.2f}. Consider reviewing your spending habits.",
                     "date": datetime.datetime.now().strftime("%Y-%m-%d")
                 })
         
@@ -240,7 +249,7 @@ class FinancialSimulator:
                 if change["year"] == year:
                     current_salary = change["new_salary"]
                     current_growth_rate = change["new_growth_rate"]
-                    year_data["events"].append(f"Career change: ₹ {current_salary:,}")
+                    year_data["events"].append(f"Career change: ₹{current_salary:,}")
             
             # Calculate inflation-adjusted expenses
             inflation_multiplier = (1 + inflation_rate) ** year
@@ -273,7 +282,7 @@ class FinancialSimulator:
                     # Adjust for inflation
                     adjusted_expense = expense["amount"] * inflation_multiplier
                     major_expense_this_year += adjusted_expense
-                    year_data["events"].append(f"{expense['name']}: ₹ {adjusted_expense:,}")
+                    year_data["events"].append(f"{expense['name']}: ₹{adjusted_expense:,}")
             
             total_spent += major_expense_this_year
             
@@ -377,7 +386,7 @@ def show_dashboard():
     
     with col3:
         monthly_total = sum(e["amount"] for e in monthly_expenses)
-        st.metric("This Month's Expenses", f"₹ {monthly_total:,.0f}")
+        st.metric("This Month's Expenses", f"₹{monthly_total:,.0f}")
     
     with col4:
         completed_goals = len([g for g in goals if g.get("status") == "completed"])
@@ -471,7 +480,7 @@ def show_goals():
                         target = goal["target_amount"]
                         progress = (current / target) * 100
                         
-                        st.metric("Progress", f"₹ {current:,.0f} / ₹ {target:,.0f}")
+                        st.metric("Progress", f"₹{current:,.0f} / ₹{target:,.0f}")
                         st.progress(min(progress / 100, 1.0))
                     
                     with col3:
@@ -504,7 +513,7 @@ def show_goals():
                                 name='Saved Amount'
                             ))
                             fig.add_hline(y=target, line_dash="dash", line_color="green", annotation_text="Target")
-                            fig.update_layout(title=f"{goal['name']} Progress", xaxis_title="Date", yaxis_title="Amount ")
+                            fig.update_layout(title=f"{goal['name']} Progress", xaxis_title="Date", yaxis_title="Amount (₹)")
                             st.plotly_chart(fig, use_container_width=True)
                     
                     st.divider()
@@ -517,8 +526,8 @@ def show_goals():
             
             with col1:
                 goal_name = st.text_input("Goal Name*", placeholder="e.g., Emergency Fund, New Car, Vacation")
-                goal_amount = st.number_input("Target Amount *", min_value=0, value=5000, step=100)
-                current_saved = st.number_input("Already Saved ", min_value=0, value=0, step=100)
+                goal_amount = st.number_input("Target Amount (₹)*", min_value=0, value=5000, step=100)
+                current_saved = st.number_input("Already Saved (₹)", min_value=0, value=0, step=100)
             
             with col2:
                 goal_category = st.selectbox("Category", ["Emergency Fund", "Major Purchase", "Travel", "Education", "Investment", "Other"])
@@ -529,7 +538,7 @@ def show_goals():
             if goal_amount > current_saved and target_date > date.today():
                 months_to_goal = (target_date.year - date.today().year) * 12 + (target_date.month - date.today().month)
                 monthly_needed = (goal_amount - current_saved) / max(months_to_goal, 1)
-                st.info(f"💡 You need to save approximately ₹ {monthly_needed:.2f} per month to reach this goal")
+                st.info(f"💡 You need to save approximately ₹{monthly_needed:.2f} per month to reach this goal")
             
             submitted = st.form_submit_button("🎯 Create Goal", type="primary")
             
@@ -548,6 +557,7 @@ def show_goals():
                 st.rerun()
     
     with tab3:
+        goals = st.session_state.simulator.get_goals()
         completed_goals = [g for g in goals if g.get("status") == "completed"]
         
         if not completed_goals:
@@ -563,7 +573,7 @@ def show_goals():
                     st.caption(f"Completed on: {goal.get('completion_date', 'Unknown')}")
                 
                 with col2:
-                    st.metric("Final Amount", f"₹ {goal['target_amount']:,.0f}")
+                    st.metric("Final Amount", f"₹{goal['target_amount']:,.0f}")
                 
                 with col3:
                     if st.button("🗑️", key=f"del_completed_{goal['id']}"):
@@ -584,7 +594,7 @@ def show_expenses():
             
             with col1:
                 expense_name = st.text_input("Expense Name*", placeholder="e.g., Groceries, Gas, Coffee")
-                expense_amount = st.number_input("Amount *", min_value=0.0, step=0.01)
+                expense_amount = st.number_input("Amount (₹)*", min_value=0.0, step=0.01)
             
             with col2:
                 expense_category = st.selectbox("Category", 
@@ -625,18 +635,18 @@ def show_expenses():
             budget_amount = monthly_budget["total_budget"] if monthly_budget else 0
             
             with col1:
-                st.metric("Total Spent", f"₹ {total_spent:,.2f}")
+                st.metric("Total Spent", f"₹{total_spent:,.2f}")
             
             with col2:
-                st.metric("Budget", f"₹ {budget_amount:,.2f}")
+                st.metric("Budget", f"₹{budget_amount:,.2f}")
             
             with col3:
                 remaining = budget_amount - total_spent
-                st.metric("Remaining", f"₹ {remaining:,.2f}", delta=f"{(remaining/budget_amount*100):.1f}%" if budget_amount > 0 else "N/A")
+                st.metric("Remaining", f"₹{remaining:,.2f}", delta=f"{(remaining/budget_amount*100):.1f}%" if budget_amount > 0 else "N/A")
             
             with col4:
                 avg_daily = total_spent / datetime.datetime.now().day
-                st.metric("Daily Average", f"₹ {avg_daily:,.2f}")
+                st.metric("Daily Average", f"₹{avg_daily:,.2f}")
             
             # Expense breakdown by category
             st.subheader("📊 Category Breakdown")
@@ -670,7 +680,7 @@ def show_expenses():
                     st.write(expense['category'])
                 
                 with col3:
-                    st.write(f"₹ {expense['amount']:.2f}")
+                    st.write(f"₹{expense['amount']:.2f}")
                 
                 with col4:
                     st.caption(expense['date'])
@@ -689,13 +699,13 @@ def show_expenses():
             col1, col2 = st.columns(2)
             
             with col1:
-                total_budget = st.number_input("Total Monthly Budget ", 
+                total_budget = st.number_input("Total Monthly Budget (₹)", 
                     min_value=0, 
                     value=budget["total_budget"] if budget else 5000, 
                     step=100)
             
             with col2:
-                income = st.number_input("Expected Monthly Income ", 
+                income = st.number_input("Expected Monthly Income (₹)", 
                     min_value=0, 
                     value=budget["income"] if budget else 6000, 
                     step=100)
@@ -755,7 +765,7 @@ def show_expenses():
                 name='Monthly Expenses',
                 line=dict(color='red', width=3)
             ))
-            fig1.update_layout(title='Monthly Expense Trend', xaxis_title='Month', yaxis_title='Total Expenses ')
+            fig1.update_layout(title='Monthly Expense Trend', xaxis_title='Month', yaxis_title='Total Expenses (₹)')
             st.plotly_chart(fig1, use_container_width=True)
             
             # Top spending categories
@@ -767,7 +777,7 @@ def show_expenses():
                 orientation='h',
                 marker_color='lightblue'
             ))
-            fig2.update_layout(title='Total Spending by Category', xaxis_title='Amount ', yaxis_title='Category')
+            fig2.update_layout(title='Total Spending by Category', xaxis_title='Amount (₹)', yaxis_title='Category')
             st.plotly_chart(fig2, use_container_width=True)
             
             # Spending patterns
@@ -779,14 +789,14 @@ def show_expenses():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.info(f"📊 Average monthly spending: ₹ {avg_monthly:,.2f}")
-                st.info(f"📈 Highest spending month: {highest_month['month']} (₹ {highest_month['amount']:,.2f})")
+                st.info(f"📊 Average monthly spending: ₹{avg_monthly:,.2f}")
+                st.info(f"📈 Highest spending month: {highest_month['month']} (₹{highest_month['amount']:,.2f})")
             
             with col2:
                 top_category = category_totals.index[0]
                 top_category_amount = category_totals.values[0]
                 st.info(f"🏷️ Top spending category: {top_category}")
-                st.info(f"💰 Total spent on {top_category}: ₹ {top_category_amount:,.2f}")
+                st.info(f"💰 Total spent on {top_category}: ₹{top_category_amount:,.2f}")
         else:
             st.info("Start tracking expenses to see analytics!")
 
@@ -832,7 +842,7 @@ def show_advice():
                         advice_items.append({
                             "category": "Goals",
                             "priority": "Medium",
-                            "advice": f"Your '{goal['name']}' goal needs ₹ {monthly_needed:.2f}/month. Consider automating this transfer right after payday.",
+                            "advice": f"Your '{goal['name']}' goal needs ₹{monthly_needed:.2f}/month. Consider automating this transfer right after payday.",
                             "potential_savings": 0
                         })
             
@@ -847,7 +857,7 @@ def show_advice():
                         st.markdown(f"**{item['category']}** - ::{priority_color}[{item['priority']} Priority]")
                         st.write(item["advice"])
                         if item["potential_savings"] > 0:
-                            st.caption(f"💰 Potential monthly savings: ₹ {item['potential_savings']:.2f}")
+                            st.caption(f"💰 Potential monthly savings: ₹{item['potential_savings']:.2f}")
                     
                     with col2:
                         if st.button("✅ Got it!", key=f"advice_{advice_items.index(item)}"):
@@ -877,7 +887,7 @@ def show_advice():
                 "description": "Why you need one and how to build it",
                 "tips": [
                     "Aim for 3-6 months of living expenses",
-                    "Start small - even ₹ 500 can help",
+                    "Start small - even ₹500 can help",
                     "Keep it in a high-yield savings account",
                     "Only use for true emergencies",
                     "Replenish immediately after use"
@@ -1006,11 +1016,11 @@ def show_create_scenario():
         with col1:
             name = st.text_input("Scenario Name*", placeholder="e.g., Software Engineer Path")
             starting_age = st.number_input("Current Age*", min_value=18, max_value=65, value=22)
-            starting_salary = st.number_input("Starting Salary *", min_value=0, value=60000, step=1000)
+            starting_salary = st.number_input("Starting Salary (₹)*", min_value=0, value=60000, step=1000)
         
         with col2:
             salary_growth_rate = st.slider("Annual Salary Growth (%)*", 0.0, 20.0, 3.0, 0.1) / 100
-            monthly_expenses = st.number_input("Monthly Living Expenses *", min_value=0, value=3000, step=100)
+            monthly_expenses = st.number_input("Monthly Living Expenses (₹)*", min_value=0, value=3000, step=100)
             savings_rate = st.slider("Savings Rate (%)*", 0.0, 100.0, 15.0, 1.0) / 100
         
         st.subheader("📈 Investment & Finance")
@@ -1018,7 +1028,7 @@ def show_create_scenario():
         with col1:
             investment_return_rate = st.slider("Expected Investment Return (%)*", 0.0, 20.0, 7.0, 0.1) / 100
         with col2:
-            student_debt = st.number_input("Student Debt ", min_value=0, value=0, step=1000)
+            student_debt = st.number_input("Student Debt (₹)", min_value=0, value=0, step=1000)
         
         st.subheader("💸 Major Expenses (Optional)")
         num_expenses = st.number_input("Number of major expenses", 0, 5, 0)
@@ -1029,7 +1039,7 @@ def show_create_scenario():
             with col1:
                 expense_name = st.text_input(f"Expense {i+1} Name", key=f"exp_name_{i}")
             with col2:
-                expense_amount = st.number_input(f"Amount ", key=f"exp_amt_{i}", min_value=0, step=1000)
+                expense_amount = st.number_input(f"Amount (₹)", key=f"exp_amt_{i}", min_value=0, step=1000)
             with col3:
                 expense_year = st.number_input(f"Year", key=f"exp_yr_{i}", min_value=1, max_value=50, value=5)
             
@@ -1049,7 +1059,7 @@ def show_create_scenario():
             with col1:
                 change_year = st.number_input(f"Year", key=f"ch_yr_{i}", min_value=1, max_value=50, value=5)
             with col2:
-                new_salary = st.number_input(f"New Salary ", key=f"ch_sal_{i}", min_value=0, step=1000)
+                new_salary = st.number_input(f"New Salary (₹)", key=f"ch_sal_{i}", min_value=0, step=1000)
             with col3:
                 new_growth_rate = st.slider(f"New Growth Rate (%)", 0.0, 20.0, 3.0, 0.1, key=f"ch_gr_{i}") / 100
             
@@ -1118,7 +1128,7 @@ def show_analyze_scenario():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Final Net Worth", f"₹ {summary['final_net_worth']:,.0f}")
+            st.metric("Final Net Worth", f"₹{summary['final_net_worth']:,.0f}")
         with col2:
             if summary['total_saved'] > 0:
                 roi = ((summary['final_net_worth'] - summary['total_saved']) / summary['total_saved']) * 100
@@ -1126,12 +1136,12 @@ def show_analyze_scenario():
                 roi = 0
             st.metric("Investment ROI", f"{roi:.1f}%")
         with col3:
-            st.metric("Total Saved", f"₹ {summary['total_saved']:,.0f}")
+            st.metric("Total Saved", f"₹{summary['total_saved']:,.0f}")
         with col4:
             if summary['fi_achieved']:
                 st.metric("Financial Independence", f"Age {summary['fi_age']}")
             else:
-                st.metric("FI Target", f"₹ {summary['fi_target']:,.0f}")
+                st.metric("FI Target", f"₹{summary['fi_target']:,.0f}")
         
         # Charts
         st.subheader("📊 Financial Growth Over Time")
@@ -1143,7 +1153,7 @@ def show_analyze_scenario():
         fig1.add_trace(go.Scatter(x=df['year'], y=df['net_worth'], 
                                   mode='lines', name='Net Worth',
                                   line=dict(color='blue', width=3)))
-        fig1.update_layout(title='Net Worth Growth', xaxis_title='Year', yaxis_title='Net Worth ')
+        fig1.update_layout(title='Net Worth Growth', xaxis_title='Year', yaxis_title='Net Worth (₹)')
         st.plotly_chart(fig1, use_container_width=True)
         
         # Income vs Expenses
@@ -1154,7 +1164,7 @@ def show_analyze_scenario():
         fig2.add_trace(go.Scatter(x=df['year'], y=df['living_expenses'], 
                                   mode='lines', name='Living Expenses',
                                   line=dict(color='red')))
-        fig2.update_layout(title='Income vs Expenses', xaxis_title='Year', yaxis_title='Amount ')
+        fig2.update_layout(title='Income vs Expenses', xaxis_title='Year', yaxis_title='Amount (₹)')
         st.plotly_chart(fig2, use_container_width=True)
 
 def show_compare_scenarios():
@@ -1194,13 +1204,13 @@ def show_compare_scenarios():
         with col1:
             diff = results2["summary"]["final_net_worth"] - results1["summary"]["final_net_worth"]
             winner = scenario2_name if diff > 0 else scenario1_name
-            st.metric("Net Worth Winner", winner, f"₹ {abs(diff):,.0f} advantage")
+            st.metric("Net Worth Winner", winner, f"₹{abs(diff):,.0f} advantage")
         
         with col2:
-            st.metric(scenario1_name, f"₹ {results1['summary']['final_net_worth']:,.0f}")
+            st.metric(scenario1_name, f"₹{results1['summary']['final_net_worth']:,.0f}")
         
         with col3:
-            st.metric(scenario2_name, f"₹ {results2['summary']['final_net_worth']:,.0f}")
+            st.metric(scenario2_name, f"₹{results2['summary']['final_net_worth']:,.0f}")
         
         # Comparison chart
         df1 = pd.DataFrame(results1["yearly_data"])
@@ -1213,7 +1223,7 @@ def show_compare_scenarios():
                                 mode='lines', name=scenario2_name))
         fig.update_layout(title='Net Worth Comparison', 
                          xaxis_title='Year', 
-                         yaxis_title='Net Worth ')
+                         yaxis_title='Net Worth (₹)')
         st.plotly_chart(fig, use_container_width=True)
 
 def show_manage_scenarios():
@@ -1234,7 +1244,7 @@ def show_manage_scenarios():
             st.caption(f"Created: {scenario.get('created_date', 'Unknown')}")
         
         with col2:
-            st.write(f"Salary: ₹ {scenario['starting_salary']:,}")
+            st.write(f"Salary: ₹{scenario['starting_salary']:,}")
         
         with col3:
             if st.button("🗑️ Delete", key=f"del_{scenario['id']}"):
@@ -1242,6 +1252,68 @@ def show_manage_scenarios():
                 st.rerun()
 
 def main():
+    # Set page config first
+    st.set_page_config(
+        page_title="Personal Economic Model - Life Decision Simulator",
+        page_icon="💰",
+        layout="wide",
+        initial_sidebar_state="collapsed"  # Start collapsed until logged in
+    )
+    
+    # Apply CSS styles
+    st.markdown("""
+    <style>
+        .main-header {
+            font-size: 3rem;
+            color: #1f77b4;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .metric-card {
+            background-color: #f0f2f6;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 0.5rem 0;
+        }
+        .goal-progress {
+            background-color: #e8f4f8;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 0.5rem 0;
+            border-left: 4px solid #1f77b4;
+        }
+        .expense-category {
+            background-color: #fff3cd;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin: 0.25rem 0;
+        }
+        .insight-box {
+            background-color: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Check password first
+    if not check_access():
+        return  # Stop here if password not correct
+    
+    # If we get here, password was correct - show the app
+    # Add a logout option in the sidebar
+    with st.sidebar:
+        if st.button("🚪 Logout", type="secondary", use_container_width=True):
+            # Clear session state to require password again
+            for key in list(st.session_state.keys()):
+                del st.session_state[key]
+            st.rerun()
+        
+        st.divider()
+    
+    # Your existing app code starts here
     st.markdown('<h1 class="main-header">💰 Personal Economic Model</h1>', unsafe_allow_html=True)
     st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Your Complete Financial Life Simulator</p>', unsafe_allow_html=True)
     
@@ -1249,7 +1321,7 @@ def main():
     if 'simulator' not in st.session_state:
         st.session_state.simulator = FinancialSimulator()
     
-    # Sidebar navigation with new pages
+    # Sidebar navigation
     st.sidebar.title("📊 Navigation")
     page = st.sidebar.selectbox(
         "Choose a section:",
@@ -1257,6 +1329,7 @@ def main():
          "🎯 Goals", "💸 Expenses", "🧠 Advice & Education", "📋 Manage Scenarios"]
     )
     
+    # Your existing page routing
     if page == "🏠 Dashboard":
         show_dashboard()
     elif page == "➕ Create Scenario":
