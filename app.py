@@ -16,7 +16,7 @@ def check_access():
     
     def verify_password():
         # YOUR HARDCODED PASSWORD - CHANGE THIS!
-        CORRECT_PASSWORD = "FinanceApp2024!"
+        CORRECT_PASSWORD = st.secrets["PASSWORD"]
         
         entered_password = st.session_state.get("app_password", "")
         
