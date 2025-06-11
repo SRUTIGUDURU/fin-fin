@@ -186,7 +186,7 @@ class FinancialSimulator:
                 insights.append({
                     "type": "expense",
                     "priority": "high",
-                    "message": f"Your average expense is ${avg_expense:.2f}. Consider reviewing your spending habits.",
+                    "message": f"Your average expense is Rupees{avg_expense:.2f}. Consider reviewing your spending habits.",
                     "date": datetime.datetime.now().strftime("%Y-%m-%d")
                 })
         
@@ -240,7 +240,7 @@ class FinancialSimulator:
                 if change["year"] == year:
                     current_salary = change["new_salary"]
                     current_growth_rate = change["new_growth_rate"]
-                    year_data["events"].append(f"Career change: ${current_salary:,}")
+                    year_data["events"].append(f"Career change: Rupees{current_salary:,}")
             
             # Calculate inflation-adjusted expenses
             inflation_multiplier = (1 + inflation_rate) ** year
@@ -273,7 +273,7 @@ class FinancialSimulator:
                     # Adjust for inflation
                     adjusted_expense = expense["amount"] * inflation_multiplier
                     major_expense_this_year += adjusted_expense
-                    year_data["events"].append(f"{expense['name']}: ${adjusted_expense:,}")
+                    year_data["events"].append(f"{expense['name']}: Rupees{adjusted_expense:,}")
             
             total_spent += major_expense_this_year
             
@@ -377,7 +377,7 @@ def show_dashboard():
     
     with col3:
         monthly_total = sum(e["amount"] for e in monthly_expenses)
-        st.metric("This Month's Expenses", f"${monthly_total:,.0f}")
+        st.metric("This Month's Expenses", f"Rupees{monthly_total:,.0f}")
     
     with col4:
         completed_goals = len([g for g in goals if g.get("status") == "completed"])
@@ -471,7 +471,7 @@ def show_goals():
                         target = goal["target_amount"]
                         progress = (current / target) * 100
                         
-                        st.metric("Progress", f"${current:,.0f} / ${target:,.0f}")
+                        st.metric("Progress", f"Rupees{current:,.0f} / Rupees{target:,.0f}")
                         st.progress(min(progress / 100, 1.0))
                     
                     with col3:
@@ -529,7 +529,7 @@ def show_goals():
             if goal_amount > current_saved and target_date > date.today():
                 months_to_goal = (target_date.year - date.today().year) * 12 + (target_date.month - date.today().month)
                 monthly_needed = (goal_amount - current_saved) / max(months_to_goal, 1)
-                st.info(f"💡 You need to save approximately ${monthly_needed:.2f} per month to reach this goal")
+                st.info(f"💡 You need to save approximately Rupees{monthly_needed:.2f} per month to reach this goal")
             
             submitted = st.form_submit_button("🎯 Create Goal", type="primary")
             
@@ -563,7 +563,7 @@ def show_goals():
                     st.caption(f"Completed on: {goal.get('completion_date', 'Unknown')}")
                 
                 with col2:
-                    st.metric("Final Amount", f"${goal['target_amount']:,.0f}")
+                    st.metric("Final Amount", f"Rupees{goal['target_amount']:,.0f}")
                 
                 with col3:
                     if st.button("🗑️", key=f"del_completed_{goal['id']}"):
@@ -625,18 +625,18 @@ def show_expenses():
             budget_amount = monthly_budget["total_budget"] if monthly_budget else 0
             
             with col1:
-                st.metric("Total Spent", f"${total_spent:,.2f}")
+                st.metric("Total Spent", f"Rupees{total_spent:,.2f}")
             
             with col2:
-                st.metric("Budget", f"${budget_amount:,.2f}")
+                st.metric("Budget", f"Rupees{budget_amount:,.2f}")
             
             with col3:
                 remaining = budget_amount - total_spent
-                st.metric("Remaining", f"${remaining:,.2f}", delta=f"{(remaining/budget_amount*100):.1f}%" if budget_amount > 0 else "N/A")
+                st.metric("Remaining", f"Rupees{remaining:,.2f}", delta=f"{(remaining/budget_amount*100):.1f}%" if budget_amount > 0 else "N/A")
             
             with col4:
                 avg_daily = total_spent / datetime.datetime.now().day
-                st.metric("Daily Average", f"${avg_daily:,.2f}")
+                st.metric("Daily Average", f"Rupees{avg_daily:,.2f}")
             
             # Expense breakdown by category
             st.subheader("📊 Category Breakdown")
@@ -670,7 +670,7 @@ def show_expenses():
                     st.write(expense['category'])
                 
                 with col3:
-                    st.write(f"${expense['amount']:.2f}")
+                    st.write(f"Rupees{expense['amount']:.2f}")
                 
                 with col4:
                     st.caption(expense['date'])
@@ -779,14 +779,14 @@ def show_expenses():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.info(f"📊 Average monthly spending: ${avg_monthly:,.2f}")
-                st.info(f"📈 Highest spending month: {highest_month['month']} (${highest_month['amount']:,.2f})")
+                st.info(f"📊 Average monthly spending: Rupees{avg_monthly:,.2f}")
+                st.info(f"📈 Highest spending month: {highest_month['month']} (Rupees{highest_month['amount']:,.2f})")
             
             with col2:
                 top_category = category_totals.index[0]
                 top_category_amount = category_totals.values[0]
                 st.info(f"🏷️ Top spending category: {top_category}")
-                st.info(f"💰 Total spent on {top_category}: ${top_category_amount:,.2f}")
+                st.info(f"💰 Total spent on {top_category}: Rupees{top_category_amount:,.2f}")
         else:
             st.info("Start tracking expenses to see analytics!")
 
@@ -832,7 +832,7 @@ def show_advice():
                         advice_items.append({
                             "category": "Goals",
                             "priority": "Medium",
-                            "advice": f"Your '{goal['name']}' goal needs ${monthly_needed:.2f}/month. Consider automating this transfer right after payday.",
+                            "advice": f"Your '{goal['name']}' goal needs Rupees{monthly_needed:.2f}/month. Consider automating this transfer right after payday.",
                             "potential_savings": 0
                         })
             
@@ -847,7 +847,7 @@ def show_advice():
                         st.markdown(f"**{item['category']}** - ::{priority_color}[{item['priority']} Priority]")
                         st.write(item["advice"])
                         if item["potential_savings"] > 0:
-                            st.caption(f"💰 Potential monthly savings: ${item['potential_savings']:.2f}")
+                            st.caption(f"💰 Potential monthly savings: Rupees{item['potential_savings']:.2f}")
                     
                     with col2:
                         if st.button("✅ Got it!", key=f"advice_{advice_items.index(item)}"):
@@ -877,7 +877,7 @@ def show_advice():
                 "description": "Why you need one and how to build it",
                 "tips": [
                     "Aim for 3-6 months of living expenses",
-                    "Start small - even $500 can help",
+                    "Start small - even Rupees500 can help",
                     "Keep it in a high-yield savings account",
                     "Only use for true emergencies",
                     "Replenish immediately after use"
@@ -1118,7 +1118,7 @@ def show_analyze_scenario():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Final Net Worth", f"${summary['final_net_worth']:,.0f}")
+            st.metric("Final Net Worth", f"Rupees{summary['final_net_worth']:,.0f}")
         with col2:
             if summary['total_saved'] > 0:
                 roi = ((summary['final_net_worth'] - summary['total_saved']) / summary['total_saved']) * 100
@@ -1126,12 +1126,12 @@ def show_analyze_scenario():
                 roi = 0
             st.metric("Investment ROI", f"{roi:.1f}%")
         with col3:
-            st.metric("Total Saved", f"${summary['total_saved']:,.0f}")
+            st.metric("Total Saved", f"Rupees{summary['total_saved']:,.0f}")
         with col4:
             if summary['fi_achieved']:
                 st.metric("Financial Independence", f"Age {summary['fi_age']}")
             else:
-                st.metric("FI Target", f"${summary['fi_target']:,.0f}")
+                st.metric("FI Target", f"Rupees{summary['fi_target']:,.0f}")
         
         # Charts
         st.subheader("📊 Financial Growth Over Time")
@@ -1194,13 +1194,13 @@ def show_compare_scenarios():
         with col1:
             diff = results2["summary"]["final_net_worth"] - results1["summary"]["final_net_worth"]
             winner = scenario2_name if diff > 0 else scenario1_name
-            st.metric("Net Worth Winner", winner, f"${abs(diff):,.0f} advantage")
+            st.metric("Net Worth Winner", winner, f"Rupees{abs(diff):,.0f} advantage")
         
         with col2:
-            st.metric(scenario1_name, f"${results1['summary']['final_net_worth']:,.0f}")
+            st.metric(scenario1_name, f"Rupees{results1['summary']['final_net_worth']:,.0f}")
         
         with col3:
-            st.metric(scenario2_name, f"${results2['summary']['final_net_worth']:,.0f}")
+            st.metric(scenario2_name, f"Rupees{results2['summary']['final_net_worth']:,.0f}")
         
         # Comparison chart
         df1 = pd.DataFrame(results1["yearly_data"])
@@ -1234,7 +1234,7 @@ def show_manage_scenarios():
             st.caption(f"Created: {scenario.get('created_date', 'Unknown')}")
         
         with col2:
-            st.write(f"Salary: ${scenario['starting_salary']:,}")
+            st.write(f"Salary: Rupees{scenario['starting_salary']:,}")
         
         with col3:
             if st.button("🗑️ Delete", key=f"del_{scenario['id']}"):
