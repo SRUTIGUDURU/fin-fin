@@ -7,8 +7,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 import numpy as np
-from typing import List, Dict, Optional
-import math
 
 # Configure Streamlit page
 st.set_page_config(
@@ -32,18 +30,6 @@ st.markdown("""
         padding: 1rem;
         border-radius: 10px;
         margin: 0.5rem 0;
-    }
-    .success-metric {
-        background-color: #d4edda;
-        border-left: 5px solid #28a745;
-    }
-    .warning-metric {
-        background-color: #fff3cd;
-        border-left: 5px solid #ffc107;
-    }
-    .danger-metric {
-        background-color: #f8d7da;
-        border-left: 5px solid #dc3545;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -79,13 +65,6 @@ class FinancialSimulator:
     def get_scenarios(self):
         """Returns all scenarios."""
         return self.data["scenarios"]
-    
-    def get_scenario_by_id(self, scenario_id):
-        """Returns a scenario by ID."""
-        for scenario in self.data["scenarios"]:
-            if scenario.get("id") == scenario_id:
-                return scenario
-        return None
     
     def delete_scenario(self, scenario_id):
         """Deletes a scenario by ID."""
@@ -165,9 +144,10 @@ class FinancialSimulator:
             debt_payment = 0
             if debt_balance > 0:
                 # Assume 10-year repayment plan
-                annual_debt_payment = scenario.get("student_debt", 0) / 10
-                debt_payment = min(annual_debt_payment, debt_balance)
-                debt_balance = max(0, debt_balance - debt_payment)
+                if scenario.get("student_debt", 0) > 0:
+                    annual_debt_payment = scenario.get("student_debt", 0) / 10
+                    debt_payment = min(annual_debt_payment, debt_balance)
+                    debt_balance = max(0, debt_balance - debt_payment)
                 year_data["debt_payment"] = debt_payment
                 year_data["remaining_debt"] = debt_balance
             
@@ -239,32 +219,6 @@ class FinancialSimulator:
             }
         }
 
-def main():
-    st.markdown('<h1 class="main-header">💰 Personal Economic Model</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Life Decision Simulator - Make Informed Financial Choices</p>', unsafe_allow_html=True)
-    
-    # Initialize simulator
-    if 'simulator' not in st.session_state:
-        st.session_state.simulator = FinancialSimulator()
-    
-    # Sidebar navigation
-    st.sidebar.title("📊 Navigation")
-    page = st.sidebar.selectbox(
-        "Choose a section:",
-        ["🏠 Dashboard", "➕ Create Scenario", "📈 Analyze Scenario", "⚖️ Compare Scenarios", "📋 Manage Scenarios"]
-    )
-    
-    if page == "🏠 Dashboard":
-        show_dashboard()
-    elif page == "➕ Create Scenario":
-        show_create_scenario()
-    elif page == "📈 Analyze Scenario":
-        show_analyze_scenario()
-    elif page == "⚖️ Compare Scenarios":
-        show_compare_scenarios()
-    elif page == "📋 Manage Scenarios":
-        show_manage_scenarios()
-
 def show_dashboard():
     """Dashboard showing overview of all scenarios."""
     st.header("📊 Financial Scenarios Dashboard")
@@ -323,40 +277,6 @@ def show_dashboard():
     ])
     
     st.dataframe(scenario_df, use_container_width=True)
-    
-    # Quick analysis for all scenarios
-    if st.button("🚀 Quick Analysis: All Scenarios (30 years)"):
-        st.subheader("📊 30-Year Projection Comparison")
-        
-        results = []
-        for scenario in scenarios:
-            result = st.session_state.simulator.simulate_scenario(scenario, years=30)
-            results.append({
-                "Scenario": scenario["name"],
-                "Final Net Worth": result["summary"]["final_net_worth"],
-                "Total Earned": result["summary"]["total_earned"],
-                "Total Saved": result["summary"]["total_saved"],
-                "FI Achieved": "✅" if result["summary"]["fi_achieved"] else "❌",
-                "FI Age": result["summary"]["fi_age"] if result["summary"]["fi_achieved"] else "Not Reached"
-            })
-        
-        results_df = pd.DataFrame(results)
-        results_df = results_df.sort_values("Final Net Worth", ascending=False)
-        
-        # Display results with formatting
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Net Worth Rankings:**")
-            for i, row in results_df.iterrows():
-                rank = list(results_df.index).index(i) + 1
-                st.write(f"{rank}. **{row['Scenario']}**: ${row['Final Net Worth']:,.0f}")
-        
-        with col2:
-            st.markdown("**Financial Independence Status:**")
-            for _, row in results_df.iterrows():
-                fi_status = f"Age {row['FI Age']}" if row['FI Age'] != "Not Reached" else "Not Reached"
-                st.write(f"**{row['Scenario']}**: {fi_status}")
 
 def show_create_scenario():
     """Interface for creating new financial scenarios."""
@@ -367,79 +287,65 @@ def show_create_scenario():
         
         col1, col2 = st.columns(2)
         with col1:
-            name = st.text_input("Scenario Name*", placeholder="e.g., Software Engineer Path, MBA Route")
+            name = st.text_input("Scenario Name*", placeholder="e.g., Software Engineer Path")
             starting_age = st.number_input("Current Age*", min_value=18, max_value=65, value=22)
             starting_salary = st.number_input("Starting Salary ($)*", min_value=0, value=60000, step=1000)
         
         with col2:
-            salary_growth_rate = st.number_input("Annual Salary Growth (%)*", min_value=0.0, max_value=20.0, value=3.0, step=0.1) / 100
+            salary_growth_rate = st.slider("Annual Salary Growth (%)*", 0.0, 20.0, 3.0, 0.1) / 100
             monthly_expenses = st.number_input("Monthly Living Expenses ($)*", min_value=0, value=3000, step=100)
-            savings_rate = st.number_input("Savings Rate (%)*", min_value=0.0, max_value=100.0, value=15.0, step=1.0) / 100
+            savings_rate = st.slider("Savings Rate (%)*", 0.0, 100.0, 15.0, 1.0) / 100
         
         st.subheader("📈 Investment & Finance")
         col1, col2 = st.columns(2)
         with col1:
-            investment_return_rate = st.number_input("Expected Investment Return (%)*", min_value=0.0, max_value=20.0, value=7.0, step=0.1) / 100
+            investment_return_rate = st.slider("Expected Investment Return (%)*", 0.0, 20.0, 7.0, 0.1) / 100
         with col2:
             student_debt = st.number_input("Student Debt ($)", min_value=0, value=0, step=1000)
         
         st.subheader("💸 Major Expenses (Optional)")
-        st.markdown("*Add significant future purchases or expenses*")
-        
-        # Dynamic major expenses
-        num_expenses = st.number_input("Number of major expenses", min_value=0, max_value=10, value=0)
+        num_expenses = st.number_input("Number of major expenses", 0, 5, 0)
         major_expenses = []
         
-        if num_expenses > 0:
-            for i in range(num_expenses):
-                st.markdown(f"**Expense {i+1}**")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    expense_name = st.text_input(f"Name", key=f"expense_name_{i}", placeholder="e.g., Car, House Down Payment")
-                with col2:
-                    expense_amount = st.number_input(f"Amount ($)", key=f"expense_amount_{i}", min_value=0, step=1000)
-                with col3:
-                    expense_year = st.number_input(f"Year", key=f"expense_year_{i}", min_value=1, max_value=50, value=1)
-                
-                if expense_name and expense_amount > 0:
-                    major_expenses.append({
-                        "name": expense_name,
-                        "amount": expense_amount,
-                        "year": expense_year - 1  # Convert to 0-indexed
-                    })
+        for i in range(int(num_expenses)):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                expense_name = st.text_input(f"Expense {i+1} Name", key=f"exp_name_{i}")
+            with col2:
+                expense_amount = st.number_input(f"Amount ($)", key=f"exp_amt_{i}", min_value=0, step=1000)
+            with col3:
+                expense_year = st.number_input(f"Year", key=f"exp_yr_{i}", min_value=1, max_value=50, value=5)
+            
+            if expense_name and expense_amount > 0:
+                major_expenses.append({
+                    "name": expense_name,
+                    "amount": expense_amount,
+                    "year": expense_year - 1
+                })
         
         st.subheader("🚀 Career Changes (Optional)")
-        st.markdown("*Model promotions, career switches, or salary jumps*")
-        
-        num_changes = st.number_input("Number of career changes", min_value=0, max_value=10, value=0)
+        num_changes = st.number_input("Number of career changes", 0, 5, 0)
         career_changes = []
         
-        if num_changes > 0:
-            for i in range(num_changes):
-                st.markdown(f"**Career Change {i+1}**")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    change_year = st.number_input(f"Year", key=f"change_year_{i}", min_value=1, max_value=50, value=5)
-                with col2:
-                    new_salary = st.number_input(f"New Salary ($)", key=f"new_salary_{i}", min_value=0, step=1000)
-                with col3:
-                    new_growth_rate = st.number_input(f"New Growth Rate (%)", key=f"new_growth_{i}", min_value=0.0, max_value=20.0, value=3.0, step=0.1) / 100
-                
-                if new_salary > 0:
-                    career_changes.append({
-                        "year": change_year - 1,  # Convert to 0-indexed
-                        "new_salary": new_salary,
-                        "new_growth_rate": new_growth_rate
-                    })
+        for i in range(int(num_changes)):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                change_year = st.number_input(f"Year", key=f"ch_yr_{i}", min_value=1, max_value=50, value=5)
+            with col2:
+                new_salary = st.number_input(f"New Salary ($)", key=f"ch_sal_{i}", min_value=0, step=1000)
+            with col3:
+                new_growth_rate = st.slider(f"New Growth Rate (%)", 0.0, 20.0, 3.0, 0.1, key=f"ch_gr_{i}") / 100
+            
+            if new_salary > 0:
+                career_changes.append({
+                    "year": change_year - 1,
+                    "new_salary": new_salary,
+                    "new_growth_rate": new_growth_rate
+                })
         
-        # Submit button
         submitted = st.form_submit_button("🎯 Create Scenario", type="primary")
         
-        if submitted:
-            if not name:
-                st.error("Please provide a scenario name.")
-                return
-            
+        if submitted and name:
             scenario_data = {
                 "name": name,
                 "starting_age": starting_age,
@@ -456,11 +362,6 @@ def show_create_scenario():
             st.session_state.simulator.add_scenario(scenario_data)
             st.success(f"✅ Scenario '{name}' created successfully!")
             st.balloons()
-            
-            # Show quick preview
-            with st.expander("📊 Quick 10-Year Preview"):
-                preview_result = st.session_state.simulator.simulate_scenario(scenario_data, years=10)
-                st.metric("Projected Net Worth (10 years)", f"${preview_result['summary']['final_net_worth']:,.0f}")
 
 def show_analyze_scenario():
     """Detailed analysis of a selected scenario."""
@@ -472,178 +373,72 @@ def show_analyze_scenario():
         st.warning("No scenarios available. Create a scenario first!")
         return
     
-    # Scenario selection
     scenario_names = [s["name"] for s in scenarios]
     selected_name = st.selectbox("Select scenario to analyze:", scenario_names)
     
     selected_scenario = next(s for s in scenarios if s["name"] == selected_name)
     
-    # Analysis parameters
     col1, col2, col3 = st.columns(3)
     with col1:
-        years = st.slider("Simulation Years", min_value=5, max_value=50, value=30, step=5)
+        years = st.slider("Simulation Years", 5, 50, 30, 5)
     with col2:
-        inflation_rate = st.slider("Inflation Rate (%)", min_value=0.0, max_value=10.0, value=3.0, step=0.1) / 100
+        inflation_rate = st.slider("Inflation Rate (%)", 0.0, 10.0, 3.0, 0.1) / 100
     with col3:
-        tax_rate = st.slider("Tax Rate (%)", min_value=0.0, max_value=50.0, value=25.0, step=1.0) / 100
+        tax_rate = st.slider("Tax Rate (%)", 0.0, 50.0, 25.0, 1.0) / 100
     
     if st.button("🚀 Run Analysis", type="primary"):
-        with st.spinner("Running comprehensive financial simulation..."):
+        with st.spinner("Running financial simulation..."):
             results = st.session_state.simulator.simulate_scenario(
                 selected_scenario, years=years, inflation_rate=inflation_rate, tax_rate=tax_rate
             )
         
         # Display results
-        show_analysis_results(results, selected_scenario, years)
-
-def show_analysis_results(results, scenario, years):
-    """Display comprehensive analysis results."""
-    summary = results["summary"]
-    yearly_data = results["yearly_data"]
-    
-    # Key metrics at the top
-    st.subheader("🎯 Key Financial Metrics")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            "Final Net Worth",
-            f"${summary['final_net_worth']:,.0f}",
-            delta=f"Age {summary['final_age']}"
-        )
-    
-    with col2:
-        roi = ((summary['final_net_worth'] - summary['total_saved']) / max(summary['total_saved'], 1)) * 100
-        st.metric(
-            "Investment ROI",
-            f"{roi:.1f}%",
-            delta=f"${summary['final_net_worth'] - summary['total_saved']:,.0f} growth"
-        )
-    
-    with col3:
-        savings_rate = (summary['total_saved'] / summary['total_earned']) * 100
-        st.metric(
-            "Lifetime Savings Rate",
-            f"{savings_rate:.1f}%",
-            delta=f"${summary['total_saved']:,.0f} saved"
-        )
-    
-    with col4:
-        if summary['fi_achieved']:
-            st.metric(
-                "Financial Independence",
-                f"Age {summary['fi_age']}",
-                delta="🎉 Achieved!"
-            )
-        else:
-            st.metric(
-                "FI Target",
-                f"${summary['fi_target']:,.0f}",
-                delta="Not reached"
-            )
-    
-    # Financial breakdown
-    st.subheader("💰 Lifetime Financial Breakdown")
-    
-    breakdown_df = pd.DataFrame([
-        {"Category": "Total Earned", "Amount": summary['total_earned'], "Percentage": 100},
-        {"Category": "Taxes Paid", "Amount": summary['total_taxes'], "Percentage": (summary['total_taxes']/summary['total_earned'])*100},
-        {"Category": "Total Spent", "Amount": summary['total_spent'], "Percentage": (summary['total_spent']/summary['total_earned'])*100},
-        {"Category": "Total Saved", "Amount": summary['total_saved'], "Percentage": (summary['total_saved']/summary['total_earned'])*100},
-    ])
-    
-    # Pie chart
-    fig_pie = px.pie(
-        breakdown_df, 
-        values='Amount', 
-        names='Category',
-        title="Lifetime Money Allocation",
-        color_discrete_sequence=['#ff7f0e', '#d62728', '#2ca02c', '#1f77b4']
-    )
-    st.plotly_chart(fig_pie, use_container_width=True)
-    
-    # Net worth over time
-    st.subheader("📈 Net Worth Growth Over Time")
-    
-    df = pd.DataFrame(yearly_data)
-    
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=('Net Worth Growth', 'Annual Income vs Expenses', 'Investment Portfolio Growth', 'Savings Rate by Year'),
-        specs=[[{"secondary_y": False}, {"secondary_y": False}],
-               [{"secondary_y": False}, {"secondary_y": False}]]
-    )
-    
-    # Net worth growth
-    fig.add_trace(
-        go.Scatter(x=df['year'], y=df['net_worth'], name='Net Worth', line=dict(color='blue', width=3)),
-        row=1, col=1
-    )
-    
-    # Income vs expenses
-    fig.add_trace(
-        go.Scatter(x=df['year'], y=df['after_tax_income'], name='After-tax Income', line=dict(color='green')),
-        row=1, col=2
-    )
-    fig.add_trace(
-        go.Scatter(x=df['year'], y=df['living_expenses'], name='Living Expenses', line=dict(color='red')),
-        row=1, col=2
-    )
-    
-    # Investment portfolio
-    fig.add_trace(
-        go.Scatter(x=df['year'], y=df['investment_portfolio'], name='Investment Portfolio', line=dict(color='purple')),
-        row=2, col=1
-    )
-    
-    # Savings rate
-    df['annual_savings_rate'] = (df['total_savings'] / df['after_tax_income']) * 100
-    fig.add_trace(
-        go.Scatter(x=df['year'], y=df['annual_savings_rate'], name='Savings Rate %', line=dict(color='orange')),
-        row=2, col=2
-    )
-    
-    fig.update_layout(height=800, showlegend=True, title_text="Comprehensive Financial Analysis")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Milestones
-    st.subheader("🏆 Financial Milestones")
-    
-    milestones = [50000, 100000, 250000, 500000, 1000000, 2500000, 5000000]
-    milestone_data = []
-    
-    for milestone in milestones:
-        for year_data in yearly_data:
-            if year_data["net_worth"] >= milestone:
-                milestone_data.append({
-                    "Milestone": f"${milestone:,}",
-                    "Age": year_data["age"],
-                    "Year": year_data["year"],
-                    "Time to Achieve": f"{year_data['year']} years"
-                })
-                break
-    
-    if milestone_data:
-        milestone_df = pd.DataFrame(milestone_data)
-        st.dataframe(milestone_df, use_container_width=True)
-    
-    # Detailed year-by-year table
-    with st.expander("📊 Detailed Year-by-Year Breakdown"):
-        detailed_df = pd.DataFrame([
-            {
-                "Year": d["year"],
-                "Age": d["age"],
-                "Salary": f"${d['gross_salary']:,.0f}",
-                "After-tax": f"${d['after_tax_income']:,.0f}",
-                "Expenses": f"${d['living_expenses']:,.0f}",
-                "Saved": f"${d['total_savings']:,.0f}",
-                "Net Worth": f"${d['net_worth']:,.0f}",
-                "Investment": f"${d['investment_portfolio']:,.0f}"
-            }
-            for d in yearly_data
-        ])
-        st.dataframe(detailed_df, use_container_width=True)
+        summary = results["summary"]
+        yearly_data = results["yearly_data"]
+        
+        # Key metrics
+        st.subheader("🎯 Key Financial Metrics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Final Net Worth", f"${summary['final_net_worth']:,.0f}")
+        with col2:
+            if summary['total_saved'] > 0:
+                roi = ((summary['final_net_worth'] - summary['total_saved']) / summary['total_saved']) * 100
+            else:
+                roi = 0
+            st.metric("Investment ROI", f"{roi:.1f}%")
+        with col3:
+            st.metric("Total Saved", f"${summary['total_saved']:,.0f}")
+        with col4:
+            if summary['fi_achieved']:
+                st.metric("Financial Independence", f"Age {summary['fi_age']}")
+            else:
+                st.metric("FI Target", f"${summary['fi_target']:,.0f}")
+        
+        # Charts
+        st.subheader("📊 Financial Growth Over Time")
+        
+        df = pd.DataFrame(yearly_data)
+        
+        # Net worth chart
+        fig1 = go.Figure()
+        fig1.add_trace(go.Scatter(x=df['year'], y=df['net_worth'], 
+                                  mode='lines', name='Net Worth',
+                                  line=dict(color='blue', width=3)))
+        fig1.update_layout(title='Net Worth Growth', xaxis_title='Year', yaxis_title='Net Worth ($)')
+        st.plotly_chart(fig1, use_container_width=True)
+        
+        # Income vs Expenses
+        fig2 = go.Figure()
+        fig2.add_trace(go.Scatter(x=df['year'], y=df['after_tax_income'], 
+                                  mode='lines', name='After-tax Income',
+                                  line=dict(color='green')))
+        fig2.add_trace(go.Scatter(x=df['year'], y=df['living_expenses'], 
+                                  mode='lines', name='Living Expenses',
+                                  line=dict(color='red')))
+        fig2.update_layout(title='Income vs Expenses', xaxis_title='Year', yaxis_title='Amount ($)')
+        st.plotly_chart(fig2, use_container_width=True)
 
 def show_compare_scenarios():
     """Compare multiple scenarios side by side."""
@@ -652,103 +447,108 @@ def show_compare_scenarios():
     scenarios = st.session_state.simulator.get_scenarios()
     
     if len(scenarios) < 2:
-        st.warning("You need at least 2 scenarios to compare. Create more scenarios first!")
+        st.warning("You need at least 2 scenarios to compare!")
         return
     
-    # Scenario selection
     scenario_names = [s["name"] for s in scenarios]
     
     col1, col2 = st.columns(2)
     with col1:
-        scenario1_name = st.selectbox("Select first scenario:", scenario_names, key="compare1")
+        scenario1_name = st.selectbox("First scenario:", scenario_names)
     with col2:
-        scenario2_name = st.selectbox("Select second scenario:", [name for name in scenario_names if name != scenario1_name], key="compare2")
+        remaining_scenarios = [s for s in scenario_names if s != scenario1_name]
+        scenario2_name = st.selectbox("Second scenario:", remaining_scenarios)
     
-    # Comparison parameters
-    comparison_years = st.slider("Comparison Years", min_value=5, max_value=50, value=30, step=5)
+    years = st.slider("Years to simulate:", 5, 50, 30, 5)
     
-    if st.button("🔍 Compare Scenarios", type="primary"):
+    if st.button("🔍 Compare", type="primary"):
         scenario1 = next(s for s in scenarios if s["name"] == scenario1_name)
         scenario2 = next(s for s in scenarios if s["name"] == scenario2_name)
         
-        with st.spinner("Running comparison analysis..."):
-            results1 = st.session_state.simulator.simulate_scenario(scenario1, years=comparison_years)
-            results2 = st.session_state.simulator.simulate_scenario(scenario2, years=comparison_years)
+        with st.spinner("Comparing scenarios..."):
+            results1 = st.session_state.simulator.simulate_scenario(scenario1, years=years)
+            results2 = st.session_state.simulator.simulate_scenario(scenario2, years=years)
         
-        show_comparison_results(results1, results2, scenario1_name, scenario2_name, comparison_years)
+        # Display comparison
+        st.subheader("📊 Comparison Results")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            diff = results2["summary"]["final_net_worth"] - results1["summary"]["final_net_worth"]
+            winner = scenario2_name if diff > 0 else scenario1_name
+            st.metric("Net Worth Winner", winner, f"${abs(diff):,.0f} advantage")
+        
+        with col2:
+            st.metric(scenario1_name, f"${results1['summary']['final_net_worth']:,.0f}")
+        
+        with col3:
+            st.metric(scenario2_name, f"${results2['summary']['final_net_worth']:,.0f}")
+        
+        # Comparison chart
+        df1 = pd.DataFrame(results1["yearly_data"])
+        df2 = pd.DataFrame(results2["yearly_data"])
+        
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=df1['year'], y=df1['net_worth'], 
+                                mode='lines', name=scenario1_name))
+        fig.add_trace(go.Scatter(x=df2['year'], y=df2['net_worth'], 
+                                mode='lines', name=scenario2_name))
+        fig.update_layout(title='Net Worth Comparison', 
+                         xaxis_title='Year', 
+                         yaxis_title='Net Worth ($)')
+        st.plotly_chart(fig, use_container_width=True)
 
-def show_comparison_results(results1, results2, name1, name2, years):
-    """Display scenario comparison results."""
-    s1, s2 = results1["summary"], results2["summary"]
+def show_manage_scenarios():
+    """Manage existing scenarios."""
+    st.header("📋 Manage Scenarios")
     
-    # Comparison metrics
-    st.subheader("🏆 Head-to-Head Comparison")
+    scenarios = st.session_state.simulator.get_scenarios()
     
-    col1, col2, col3 = st.columns(3)
+    if not scenarios:
+        st.info("No scenarios to manage yet.")
+        return
     
-    with col1:
-        st.markdown("### Net Worth")
-        winner = name1 if s1["final_net_worth"] > s2["final_net_worth"] else name2
-        advantage = abs(s1["final_net_worth"] - s2["final_net_worth"])
-        st.success(f"🏆 **{winner}**")
-        st.write(f"Advantage: ${advantage:,.0f}")
-    
-    with col2:
-        st.markdown("### Total Earnings")
-        winner = name1 if s1["total_earned"] > s2["total_earned"] else name2
-        advantage = abs(s1["total_earned"] - s2["total_earned"])
-        st.info(f"🏆 **{winner}**")
-        st.write(f"Advantage: ${advantage:,.0f}")
-    
-    with col3:
-        st.markdown("### Financial Independence")
-        fi1 = s1["fi_age"] if s1["fi_achieved"] else "Not Achieved"
-        fi2 = s2["fi_age"] if s2["fi_achieved"] else "Not Achieved"
+    for scenario in scenarios:
+        col1, col2, col3 = st.columns([3, 1, 1])
         
-        if fi1 == "Not Achieved" and fi2 == "Not Achieved":
-            st.write(f"{name1}: {fi1}")
-            st.write(f"{name2}: {fi2}")
+        with col1:
+            st.write(f"**{scenario['name']}**")
+            st.caption(f"Created: {scenario.get('created_date', 'Unknown')}")
         
-        else:
-            if fi1 != "Not Achieved" and fi2 != "Not Achieved":
-                if fi1 < fi2:
-                    st.success(f"🏆 **{name1}**")
-                    st.write(f"Faster by {fi2 - fi1} years")
-                else:
-                    st.success(f"🏆 **{name2}**")
-                    st.write(f"Faster by {fi1 - fi2} years")
-            elif fi1 != "Not Achieved":
-                st.success(f"🏆 **{name1}**")
-                st.write(f"{name2} did not achieve FI")
-            else:
-                st.success(f"🏆 **{name2}**")
-                st.write(f"{name1} did not achieve FI")
+        with col2:
+            st.write(f"Salary: ${scenario['starting_salary']:,}")
+        
+        with col3:
+            if st.button("🗑️ Delete", key=f"del_{scenario['id']}"):
+                st.session_state.simulator.delete_scenario(scenario['id'])
+                st.rerun()
+
+def main():
+    st.markdown('<h1 class="main-header">💰 Personal Economic Model</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; font-size: 1.2rem; color: #666;">Life Decision Simulator</p>', unsafe_allow_html=True)
     
-    # Detailed net worth growth comparison
-    st.subheader("📈 Net Worth Growth Over Time")
+    # Initialize simulator
+    if 'simulator' not in st.session_state:
+        st.session_state.simulator = FinancialSimulator()
     
-    df1 = pd.DataFrame(results1["yearly_data"])
-    df2 = pd.DataFrame(results2["yearly_data"])
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df1["year"], y=df1["net_worth"], name=name1, line=dict(color='blue', width=3)))
-    fig.add_trace(go.Scatter(x=df2["year"], y=df2["net_worth"], name=name2, line=dict(color='green', width=3, dash='dash')))
-    
-    fig.update_layout(
-        xaxis_title='Years',
-        yaxis_title='Net Worth ($)',
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+    # Sidebar navigation
+    st.sidebar.title("📊 Navigation")
+    page = st.sidebar.selectbox(
+        "Choose a section:",
+        ["🏠 Dashboard", "➕ Create Scenario", "📈 Analyze Scenario", "⚖️ Compare Scenarios", "📋 Manage Scenarios"]
     )
     
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Full comparison table
-    st.subheader("📊 Detailed Comparison")
-    
-    comparisons = pd.DataFrame({
-        "Metric": ["Total Earned", "Total Saved", "Total Spent", "Final Net Worth", "Liquid Savings", "Investment Portfolio", "FI Target"],
-        name1: [s1["total_earned"], s1["total_saved"], s1["total_spent"], s1["final_net_worth"], s1["liquid_savings"], s1["investment_portfolio"], s1["fi_target"]],
-        name2: [s2["total_earned"], s2["total_saved"], s2["total_spent"], s2["final_net_worth"], s2["liquid_savings"], s2["investment_portfolio"], s2["fi_target"]]
-    })
-    
-    st.write(comparisons.style.format(subset=[name1, name2], formatter="{$,.0f}"))
+    if page == "🏠 Dashboard":
+        show_dashboard()
+    elif page == "➕ Create Scenario":
+        show_create_scenario()
+    elif page == "📈 Analyze Scenario":
+        show_analyze_scenario()
+    elif page == "⚖️ Compare Scenarios":
+        show_compare_scenarios()
+    elif page == "📋 Manage Scenarios":
+        show_manage_scenarios()
+
+if __name__ == "__main__":
+    main()
