@@ -716,7 +716,7 @@ def show_savings():
                 xaxis_title='Month',
                 yaxis=dict(
                     title='Total Savings (₹)',
-                    titlefont=dict(color='darkgreen'),
+                    tickfont=dict(color='darkgreen'),
                     tickfont=dict(color='darkgreen')
                 ),
                 yaxis2=dict(
