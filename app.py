@@ -69,6 +69,7 @@ DATA_FILE = "financial_scenarios.json"
 GOALS_FILE = "financial_goals.json"
 EXPENSES_FILE = "monthly_expenses.json"
 INSIGHTS_FILE = "financial_insights.json"
+SAVINGS_FILE = "savings_data.json"  # Add new savings file
 
 class FinancialSimulator:
     def __init__(self):
@@ -76,6 +77,7 @@ class FinancialSimulator:
         self.goals_data = self.load_json(GOALS_FILE, {"goals": []})
         self.expenses_data = self.load_json(EXPENSES_FILE, {"expenses": [], "monthly_budgets": []})
         self.insights_data = self.load_json(INSIGHTS_FILE, {"insights": []})
+        self.savings_data = self.load_json(SAVINGS_FILE, {"savings": []})  # Add savings data
     
     def load_json(self, filename, default):
         """Generic JSON loader."""
@@ -180,6 +182,64 @@ class FinancialSimulator:
             if budget["month"] == month:
                 return budget
         return None
+    
+    # Savings methods
+    def add_savings(self, savings_entry):
+        """Add a new savings entry."""
+        savings_entry["id"] = len(self.savings_data["savings"]) + 1
+        savings_entry["date"] = datetime.datetime.now().strftime("%Y-%m-%d")
+        savings_entry["month"] = datetime.datetime.now().strftime("%Y-%m")
+        self.savings_data["savings"].append(savings_entry)
+        self.save_json(SAVINGS_FILE, self.savings_data)
+    
+    def get_savings(self, month=None):
+        """Get savings entries, optionally filtered by month."""
+        if month:
+            return [s for s in self.savings_data["savings"] if s.get("month") == month]
+        return self.savings_data["savings"]
+    
+    def update_savings(self, month, amount):
+        """Update savings for a specific month."""
+        # Check if entry exists for this month
+        existing_entry = None
+        for saving in self.savings_data["savings"]:
+            if saving["month"] == month:
+                existing_entry = saving
+                break
+        
+        if existing_entry:
+            existing_entry["amount"] = amount
+            existing_entry["date"] = datetime.datetime.now().strftime("%Y-%m-%d")
+        else:
+            self.add_savings({
+                "month": month,
+                "amount": amount,
+                "type": "monthly_savings"
+            })
+        
+        self.save_json(SAVINGS_FILE, self.savings_data)
+    
+    def get_total_savings(self):
+        """Calculate total savings across all entries."""
+        return sum(s.get("amount", 0) for s in self.savings_data["savings"])
+    
+    def get_savings_growth_data(self):
+        """Get savings data formatted for growth chart."""
+        savings = self.savings_data["savings"]
+        if not savings:
+            return pd.DataFrame()
+        
+        # Group by month and sum amounts
+        df = pd.DataFrame(savings)
+        df['date'] = pd.to_datetime(df['date'])
+        df['month'] = df['date'].dt.to_period('M').astype(str)
+        
+        # Calculate cumulative savings
+        monthly_savings = df.groupby('month')['amount'].sum().reset_index()
+        monthly_savings = monthly_savings.sort_values('month')
+        monthly_savings['cumulative'] = monthly_savings['amount'].cumsum()
+        
+        return monthly_savings
     
     # Financial insights
     def generate_insights(self, scenarios, goals, expenses):
@@ -373,6 +433,7 @@ def show_dashboard():
     goals = st.session_state.simulator.get_goals()
     current_month = datetime.datetime.now().strftime("%Y-%m")
     monthly_expenses = st.session_state.simulator.get_expenses(current_month)
+    monthly_savings = st.session_state.simulator.get_savings(current_month)
     
     # Top metrics
     col1, col2, col3, col4 = st.columns(4)
@@ -389,8 +450,8 @@ def show_dashboard():
         st.metric("This Month's Expenses", f"₹{monthly_total:,.0f}")
     
     with col4:
-        completed_goals = len([g for g in goals if g.get("status") == "completed"])
-        st.metric("Goals Achieved", completed_goals)
+        total_savings = st.session_state.simulator.get_total_savings()
+        st.metric("Total Savings", f"₹{total_savings:,.0f}")
     
     # Financial Health Score
     st.subheader("🏆 Financial Health Score")
@@ -579,6 +640,368 @@ def show_goals():
                     if st.button("🗑️", key=f"del_completed_{goal['id']}"):
                         st.session_state.simulator.delete_goal(goal['id'])
                         st.rerun()
+
+def show_savings():
+    """Savings tracking and visualization page."""
+    st.header("💰 Savings Tracker")
+    
+    tab1, tab2, tab3, tab4 = st.tabs(["📈 Overview", "➕ Add Savings", "📊 Growth Analysis", "🎯 Savings Goals"])
+    
+    with tab1:
+        # Overview metrics
+        total_savings = st.session_state.simulator.get_total_savings()
+        current_month = datetime.datetime.now().strftime("%Y-%m")
+        monthly_savings = st.session_state.simulator.get_savings(current_month)
+        current_month_total = sum(s.get("amount", 0) for s in monthly_savings)
+        
+        # Calculate savings rate if we have expense data
+        monthly_expenses = st.session_state.simulator.get_expenses(current_month)
+        total_expenses = sum(e["amount"] for e in monthly_expenses)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Savings", f"₹{total_savings:,.2f}")
+        
+        with col2:
+            st.metric("This Month", f"₹{current_month_total:,.2f}")
+        
+        with col3:
+            if total_expenses > 0:
+                savings_rate = (current_month_total / (current_month_total + total_expenses)) * 100
+                st.metric("Savings Rate", f"{savings_rate:.1f}%")
+            else:
+                st.metric("Savings Rate", "N/A")
+        
+        with col4:
+            # Average monthly savings
+            all_savings = st.session_state.simulator.get_savings()
+            if all_savings:
+                unique_months = len(set(s["month"] for s in all_savings))
+                avg_monthly = total_savings / unique_months if unique_months > 0 else 0
+                st.metric("Monthly Average", f"₹{avg_monthly:,.2f}")
+            else:
+                st.metric("Monthly Average", "₹0")
+        
+        # Savings Growth Chart
+        st.subheader("📈 Savings Growth Over Time")
+        
+        growth_data = st.session_state.simulator.get_savings_growth_data()
+        
+        if not growth_data.empty:
+            fig = go.Figure()
+            
+            # Add monthly savings bar chart
+            fig.add_trace(go.Bar(
+                x=growth_data['month'],
+                y=growth_data['amount'],
+                name='Monthly Savings',
+                marker_color='lightblue',
+                yaxis='y2'
+            ))
+            
+            # Add cumulative savings line chart
+            fig.add_trace(go.Scatter(
+                x=growth_data['month'],
+                y=growth_data['cumulative'],
+                mode='lines+markers',
+                name='Total Savings',
+                line=dict(color='darkgreen', width=3),
+                marker=dict(size=8)
+            ))
+            
+            # Create axis layout
+            fig.update_layout(
+                title='Savings Growth Analysis',
+                xaxis_title='Month',
+                yaxis=dict(
+                    title='Total Savings (₹)',
+                    titlefont=dict(color='darkgreen'),
+                    tickfont=dict(color='darkgreen')
+                ),
+                yaxis2=dict(
+                    title='Monthly Savings (₹)',
+                    titlefont=dict(color='lightblue'),
+                    tickfont=dict(color='lightblue'),
+                    anchor='x',
+                    overlaying='y',
+                    side='right'
+                ),
+                hovermode='x unified',
+                height=500
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Savings milestones
+            if total_savings > 0:
+                st.subheader("🏆 Savings Milestones")
+                milestones = [1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000]
+                achieved_milestones = [m for m in milestones if total_savings >= m]
+                
+                if achieved_milestones:
+                    cols = st.columns(len(achieved_milestones[-3:]))  # Show last 3 milestones
+                    for i, milestone in enumerate(achieved_milestones[-3:]):
+                        with cols[i]:
+                            st.success(f"✅ ₹{milestone:,} reached!")
+                
+                # Next milestone
+                next_milestones = [m for m in milestones if total_savings < m]
+                if next_milestones:
+                    next_milestone = next_milestones[0]
+                    progress = (total_savings / next_milestone) * 100
+                    st.info(f"🎯 Next milestone: ₹{next_milestone:,} ({progress:.1f}% complete)")
+                    st.progress(progress / 100)
+        else:
+            st.info("Start tracking your savings to see growth charts!")
+    
+    with tab2:
+        st.subheader("➕ Record Savings")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Quick add for current month
+            st.write("### Quick Add - Current Month")
+            current_month_display = datetime.datetime.now().strftime("%B %Y")
+            
+            quick_amount = st.number_input(
+                f"Amount saved in {current_month_display} (₹)",
+                min_value=0.0,
+                step=100.0,
+                key="quick_savings"
+            )
+            
+            if st.button("💾 Save Current Month", type="primary"):
+                if quick_amount > 0:
+                    st.session_state.simulator.update_savings(
+                        datetime.datetime.now().strftime("%Y-%m"),
+                        quick_amount
+                    )
+                    st.success(f"✅ Saved ₹{quick_amount:,.2f} for {current_month_display}")
+                    st.rerun()
+        
+        with col2:
+            # Add for specific month
+            st.write("### Add for Specific Month")
+            
+            selected_date = st.date_input(
+                "Select Month",
+                value=date.today(),
+                max_value=date.today()
+            )
+            
+            specific_amount = st.number_input(
+                "Amount saved (₹)",
+                min_value=0.0,
+                step=100.0,
+                key="specific_savings"
+            )
+            
+            if st.button("💾 Save for Selected Month"):
+                if specific_amount > 0:
+                    month_str = selected_date.strftime("%Y-%m")
+                    st.session_state.simulator.update_savings(month_str, specific_amount)
+                    st.success(f"✅ Saved ₹{specific_amount:,.2f} for {selected_date.strftime('%B %Y')}")
+                    st.rerun()
+        
+        # Recent savings history
+        st.subheader("📋 Recent Savings")
+        all_savings = st.session_state.simulator.get_savings()
+        if all_savings:
+            # Sort by date descending
+            sorted_savings = sorted(all_savings, key=lambda x: x['date'], reverse=True)[:10]
+            
+            for saving in sorted_savings:
+                month_date = datetime.datetime.strptime(saving['month'], "%Y-%m")
+                col1, col2, col3 = st.columns([2, 1, 1])
+                
+                with col1:
+                    st.write(f"**{month_date.strftime('%B %Y')}**")
+                
+                with col2:
+                    st.write(f"₹{saving['amount']:,.2f}")
+                
+                with col3:
+                    st.caption(f"Added: {saving['date']}")
+    
+    with tab3:
+        st.subheader("📊 Savings Analysis")
+        
+        growth_data = st.session_state.simulator.get_savings_growth_data()
+        
+        if not growth_data.empty:
+            # Year-over-year comparison
+            st.write("### 📅 Year-over-Year Comparison")
+            
+            # Extract year from month string and create yearly summary
+            growth_data['year'] = pd.to_datetime(growth_data['month']).dt.year
+            yearly_savings = growth_data.groupby('year')['amount'].sum().reset_index()
+            
+            if len(yearly_savings) > 0:
+                fig_yearly = px.bar(
+                    yearly_savings,
+                    x='year',
+                    y='amount',
+                    title='Annual Savings Comparison',
+                    labels={'amount': 'Total Saved (₹)', 'year': 'Year'},
+                    text='amount'
+                )
+                fig_yearly.update_traces(texttemplate='₹%{text:,.0f}', textposition='outside')
+                st.plotly_chart(fig_yearly, use_container_width=True)
+            
+            # Monthly trend analysis
+            st.write("### 📈 Savings Trend")
+            
+            # Calculate moving average
+            growth_data['ma_3'] = growth_data['amount'].rolling(window=3, min_periods=1).mean()
+            
+            fig_trend = go.Figure()
+            fig_trend.add_trace(go.Scatter(
+                x=growth_data['month'],
+                y=growth_data['amount'],
+                mode='lines+markers',
+                name='Monthly Savings',
+                line=dict(color='lightblue', width=2)
+            ))
+            fig_trend.add_trace(go.Scatter(
+                x=growth_data['month'],
+                y=growth_data['ma_3'],
+                mode='lines',
+                name='3-Month Average',
+                line=dict(color='orange', width=3, dash='dash')
+            ))
+            fig_trend.update_layout(
+                title='Savings Trend with Moving Average',
+                xaxis_title='Month',
+                yaxis_title='Amount (₹)',
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # Savings consistency score
+            st.write("### 🎯 Savings Consistency")
+            
+            total_months = len(growth_data)
+            months_with_savings = len(growth_data[growth_data['amount'] > 0])
+            consistency_score = (months_with_savings / total_months * 100) if total_months > 0 else 0
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Consistency Score", f"{consistency_score:.1f}%")
+            
+            with col2:
+                st.metric("Months Tracked", total_months)
+            
+            with col3:
+                st.metric("Best Month", f"₹{growth_data['amount'].max():,.0f}")
+        else:
+            st.info("Add savings data to see detailed analysis!")
+    
+    with tab4:
+        st.subheader("🎯 Savings Goals & Projections")
+        
+        # Set savings target
+        st.write("### Set Annual Savings Target")
+        
+        current_year = datetime.datetime.now().year
+        annual_target = st.number_input(
+            f"Savings target for {current_year} (₹)",
+            min_value=0,
+            value=60000,
+            step=1000
+        )
+        
+        # Calculate progress
+        growth_data = st.session_state.simulator.get_savings_growth_data()
+        if not growth_data.empty:
+            current_year_data = growth_data[pd.to_datetime(growth_data['month']).dt.year == current_year]
+            current_year_savings = current_year_data['amount'].sum()
+            
+            # Progress visualization
+            progress = (current_year_savings / annual_target * 100) if annual_target > 0 else 0
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.metric(f"{current_year} Progress", f"₹{current_year_savings:,.0f} / ₹{annual_target:,.0f}")
+                st.progress(min(progress / 100, 1.0))
+            
+            with col2:
+                months_remaining = 12 - datetime.datetime.now().month
+                if months_remaining > 0:
+                    monthly_needed = (annual_target - current_year_savings) / months_remaining
+                    st.metric("Monthly Target", f"₹{monthly_needed:,.0f}")
+                    st.caption(f"To reach your {current_year} goal")
+            
+            # Projection chart
+            st.write("### 📊 Savings Projection")
+            
+            # Create projection data
+            avg_monthly_savings = growth_data['amount'].mean()
+            projection_months = pd.date_range(
+                start=datetime.datetime.now(),
+                periods=12,
+                freq='M'
+            )
+            
+            projection_data = []
+            current_total = st.session_state.simulator.get_total_savings()
+            
+            for month in projection_months:
+                current_total += avg_monthly_savings
+                projection_data.append({
+                    'month': month.strftime('%Y-%m'),
+                    'projected_total': current_total
+                })
+            
+            projection_df = pd.DataFrame(projection_data)
+            
+            fig_projection = go.Figure()
+            
+            # Actual savings
+            fig_projection.add_trace(go.Scatter(
+                x=growth_data['month'],
+                y=growth_data['cumulative'],
+                mode='lines+markers',
+                name='Actual Savings',
+                line=dict(color='green', width=3)
+            ))
+            
+            # Projected savings
+            fig_projection.add_trace(go.Scatter(
+                x=projection_df['month'],
+                y=projection_df['projected_total'],
+                mode='lines',
+                name='Projected Savings',
+                line=dict(color='orange', width=3, dash='dash')
+            ))
+            
+            fig_projection.update_layout(
+                title='Savings Projection (Next 12 Months)',
+                xaxis_title='Month',
+                yaxis_title='Total Savings (₹)',
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig_projection, use_container_width=True)
+            
+            # Savings tips
+            st.write("### 💡 Savings Tips")
+            
+            tips = [
+                "🏦 Set up automatic transfers to savings account on payday",
+                "📉 Review and cut unnecessary subscriptions",
+                "🛒 Use the 24-hour rule for non-essential purchases",
+                "💳 Pay yourself first - save before spending",
+                "📊 Track every expense to identify saving opportunities"
+            ]
+            
+            for tip in tips:
+                st.info(tip)
+        else:
+            st.info("Start tracking your savings to see projections!")
 
 def show_expenses():
     """Expense tracking page."""
@@ -1321,15 +1744,15 @@ def main():
     if 'simulator' not in st.session_state:
         st.session_state.simulator = FinancialSimulator()
     
-    # Sidebar navigation
+    # Sidebar navigation - Updated with Savings option
     st.sidebar.title("📊 Navigation")
     page = st.sidebar.selectbox(
         "Choose a section:",
         ["🏠 Dashboard", "📈 Analyze Scenario", "➕ Create Scenario", "⚖️ Compare Scenarios", 
-         "🎯 Goals", "💸 Expenses", "🧠 Advice & Education", "📋 Manage Scenarios"]
+         "🎯 Goals", "💰 Savings", "💸 Expenses", "🧠 Advice & Education", "📋 Manage Scenarios"]
     )
     
-    # Your existing page routing
+    # Your existing page routing - Updated with Savings
     if page == "🏠 Dashboard":
         show_dashboard()
     elif page == "➕ Create Scenario":
@@ -1340,6 +1763,8 @@ def main():
         show_compare_scenarios()
     elif page == "🎯 Goals":
         show_goals()
+    elif page == "💰 Savings":
+        show_savings()
     elif page == "💸 Expenses":
         show_expenses()
     elif page == "🧠 Advice & Education":
